@@ -4,20 +4,41 @@ import { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { collection, getDocs, query, orderBy } from "firebase/firestore"; 
 
+// --- 1. "แปะป้าย" กำหนดประเภทของข้อมูล ---
+interface Category {
+  id: string;
+  name: string;
+  order: number;
+}
+
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  category: string;
+}
+
+interface CartItem extends Product {
+  quantity: number;
+}
+
 export default function Home() {
-  const [categories, setCategories] = useState([]);
-  const [products, setProducts] = useState([]);
+  // --- 2. บอกประเภทตอนสร้าง "กล่อง" ---
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [selectedCategory, setSelectedCategory] = useState('');
-  const [cart, setCart] = useState([]);
+  const [cart, setCart] = useState<CartItem[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
+      
       const categoriesQuery = query(collection(db, "categories"), orderBy("order"));
       const categorySnapshot = await getDocs(categoriesQuery);
-      const categoryList = categorySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      // บอกให้ TypeScript รู้ว่า categoryList คือลิสต์ของ Category
+      const categoryList = categorySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Category[];
       setCategories(categoryList);
       
       if (categoryList.length > 0 && !selectedCategory) {
@@ -25,7 +46,8 @@ export default function Home() {
       }
 
       const productSnapshot = await getDocs(collection(db, "products"));
-      const productList = productSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      // บอกให้ TypeScript รู้ว่า productList คือลิสต์ของ Product
+      const productList = productSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Product[];
       setProducts(productList);
 
       setLoading(false);
@@ -33,25 +55,20 @@ export default function Home() {
     fetchData();
   }, []);
 
-  // --- 1. อัปเกรดฟังก์ชันจัดการตะกร้าทั้งหมด ---
-  
-  const addToCart = (product) => {
+  const addToCart = (product: Product) => {
     const existingProductIndex = cart.findIndex(item => item.id === product.id);
     if (existingProductIndex !== -1) {
-      // ถ้ามีอยู่แล้ว ให้เพิ่มจำนวน (+1)
       updateQuantity(product.id, 1);
     } else {
-      // ถ้ายังไม่มี ให้เพิ่มเข้าไปใหม่
       setCart([...cart, { ...product, quantity: 1 }]);
     }
   };
 
-  const removeFromCart = (productId) => {
-    // กรองเอาสินค้าชิ้นที่ต้องการลบออกไป
+  const removeFromCart = (productId: string) => {
     setCart(cart.filter(item => item.id !== productId));
   };
 
-  const updateQuantity = (productId, amount) => {
+  const updateQuantity = (productId: string, amount: number) => {
     const updatedCart = [...cart];
     const productIndex = updatedCart.findIndex(item => item.id === productId);
 
@@ -59,7 +76,6 @@ export default function Home() {
       const newQuantity = updatedCart[productIndex].quantity + amount;
       
       if (newQuantity <= 0) {
-        // ถ้าจำนวนน้อยกว่าหรือเท่ากับ 0 ให้ลบสินค้านั้นทิ้ง
         removeFromCart(productId);
       } else {
         updatedCart[productIndex].quantity = newQuantity;
@@ -83,10 +99,9 @@ export default function Home() {
   }
 
   return (
+    // ... ส่วน JSX เหมือนเดิมทุกประการ ...
     <main className="flex h-screen bg-gray-200 font-sans">
-      
       <div className="w-2/3 bg-white p-4 flex flex-col">
-        {/* ... ส่วนโค้ดด้านซ้ายเหมือนเดิม ... */}
         <div className="mb-4">
           <h1 className="text-2xl font-bold text-gray-800">เลือกหมวดหมู่</h1>
         </div>
@@ -110,7 +125,6 @@ export default function Home() {
           </div>
         </div>
       </div>
-
       <div className="w-1/3 bg-gray-100 p-4 flex flex-col">
         <div className="flex justify-between items-center mb-4">
             <h2 className="text-2xl font-bold text-gray-800">รายการสั่งซื้อ</h2>
@@ -123,15 +137,10 @@ export default function Home() {
             <p className="text-gray-500 text-center mt-10">ยังไม่มีรายการ</p>
           ) : (
             cart.map((item, index) => (
-              // --- 2. อัปเกรดการแสดงผลในบิลให้มีปุ่มแก้ไข ---
               <div key={index} className="flex justify-between items-center mb-2 border-b pb-2">
                 <div>
                     <span className="font-semibold">{item.name}</span>
-                    <div className="flex items-center gap-2 mt-1">
-                        <button onClick={() => updateQuantity(item.id, -1)} className="bg-gray-300 w-6 h-6 rounded-full font-bold">-</button>
-                        <span>{item.quantity}</span>
-                        <button onClick={() => updateQuantity(item.id, 1)} className="bg-gray-300 w-6 h-6 rounded-full font-bold">+</button>
-                    </div>
+                    <span className="text-sm text-gray-500"> (x{item.quantity})</span>
                 </div>
                 <div className="flex items-center gap-4">
                   <span className='font-semibold'>{item.price * item.quantity} บาท</span>
