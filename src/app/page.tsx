@@ -193,8 +193,8 @@ export default function Home() {
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
           <div className="bg-white p-8 rounded-lg text-center">
-            <h2 className="text-2xl font-bold mb-4">สแกนเพื่อชำระเงิน</h2>
-            <p className="text-xl mb-4">ยอดชำระทั้งหมด: {totalPrice} บาท</p>
+            <h2 className="text-2xl font-bold mb-4 text-gray-800">สแกนเพื่อชำระเงิน</h2>
+            <p className="text-xl mb-4 text-gray-700">ยอดชำระทั้งหมด: {totalPrice} บาท</p>
             {qrCodeData && <img src={qrCodeData} alt="PromptPay QR Code" className="mx-auto" />}
             <div className="mt-6 flex gap-4">
               <button onClick={() => setIsModalOpen(false)} className="bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded-lg">ยกเลิก</button>
