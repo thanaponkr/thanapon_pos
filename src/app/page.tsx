@@ -35,9 +35,11 @@ export default function Home() {
           setSelectedCategory(categoryList[0].name);
         }
 
-        const productSnapshot = await getDocs(collection(db, "products"));
-        const productList = productSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Product[];
-        setProducts(productList);
+        // --- ดึงข้อมูล Products ---
+const productsQuery = query(collection(db, "products"), orderBy("order"));
+const productSnapshot = await getDocs(productsQuery);
+const productList = productSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Product[];
+setProducts(productList);
 
       } catch (error) {
         console.error("Error fetching data:", error);
