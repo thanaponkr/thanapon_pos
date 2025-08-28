@@ -72,7 +72,9 @@ export default function Home() {
   };
   const clearCart = () => { setCart([]); };
   const totalPrice = cart.reduce((sum, product) => sum + (product.price * product.quantity), 0);
-  const filteredProducts = products.filter(product => product.category === selectedCategory);
+  const filteredProducts = products
+  .filter((product) => product.category === selectedCategory)
+  .sort((a, b) => (a.order || 0) - (b.order || 0));
 
   const handleGenerateQR = () => {
     if (cart.length === 0) return;
