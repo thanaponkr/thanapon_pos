@@ -21,8 +21,8 @@ export default function Home() {
   const [qrCodeData, setQrCodeData] = useState('');
   const [isClient, setIsClient] = useState(false);
 
-  useEffect(() => {
-    setIsClient(true);
+useEffect(() => {
+    setIsClient(true); 
     const fetchData = async () => {
       setLoading(true);
       try {
@@ -30,16 +30,16 @@ export default function Home() {
         const categorySnapshot = await getDocs(categoriesQuery);
         const categoryList = categorySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Category[];
         setCategories(categoryList);
-        
+
         if (categoryList.length > 0) {
           setSelectedCategory(categoryList[0].name);
         }
 
-        // --- ดึงข้อมูล Products ---
-const productsQuery = query(collection(db, "products"), orderBy("order"));
-const productSnapshot = await getDocs(productsQuery);
-const productList = productSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Product[];
-setProducts(productList);
+        // --- ส่วนที่แก้ไขอยู่ตรงนี้ ---
+        const productsQuery = query(collection(db, "products"), orderBy("order", "asc"));
+        const productSnapshot = await getDocs(productsQuery);
+        const productList = productSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Product[];
+        setProducts(productList);
 
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -47,6 +47,7 @@ setProducts(productList);
         setLoading(false); 
       }
     };
+
     fetchData();
   }, []);
 
