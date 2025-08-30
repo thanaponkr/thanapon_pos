@@ -1,3 +1,8 @@
 git add .
 git commit -m "feat: Add product images and responsive styles"
 git push
+
+
+git add .
+git commit -m "fix: Ensure all products are sorted by order from Firebase"
+git push
