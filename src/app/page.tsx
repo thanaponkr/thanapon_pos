@@ -3,12 +3,10 @@
 import { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { collection, getDocs, query, orderBy, addDoc, serverTimestamp } from "firebase/firestore"; 
-import QRCode from 'qrcode';
-import promptpay from 'promptpay-qr';
 
-// Interfaces (แก้ไข imageURL -> imageUr1)
+// Interfaces
 interface Category { id: string; name: string; order: number; }
-interface Product { id: string; name: string; price: number; category: string; imageUrl?: string; } 
+interface Product { id: string; name: string; price: number; category: string; imageUrl?: string; order?: number; }
 interface CartItem extends Product { quantity: number; }
 
 export default function Home() {
@@ -17,12 +15,10 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [qrCodeData, setQrCodeData] = useState('');
   const [isClient, setIsClient] = useState(false);
 
-useEffect(() => {
-    setIsClient(true); 
+  useEffect(() => {
+    setIsClient(true);
     const fetchData = async () => {
       setLoading(true);
       try {
@@ -30,12 +26,11 @@ useEffect(() => {
         const categorySnapshot = await getDocs(categoriesQuery);
         const categoryList = categorySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Category[];
         setCategories(categoryList);
-
+        
         if (categoryList.length > 0) {
           setSelectedCategory(categoryList[0].name);
         }
 
-        // --- ส่วนที่แก้ไขอยู่ตรงนี้ ---
         const productsQuery = query(collection(db, "products"), orderBy("order", "asc"));
         const productSnapshot = await getDocs(productsQuery);
         const productList = productSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Product[];
@@ -47,7 +42,6 @@ useEffect(() => {
         setLoading(false); 
       }
     };
-
     fetchData();
   }, []);
 
@@ -76,31 +70,27 @@ useEffect(() => {
   const clearCart = () => { setCart([]); };
   const totalPrice = cart.reduce((sum, product) => sum + (product.price * product.quantity), 0);
   const filteredProducts = products
-  .filter((product) => product.category === selectedCategory)
-  .sort((a, b) => (a.order || 0) - (b.order || 0));
+    .filter((product) => product.category === selectedCategory)
+    .sort((a, b) => (a.order || 0) - (b.order || 0));
 
-  const handleGenerateQR = () => {
-    if (cart.length === 0) return;
-    const promptpayId = '081-234-5678'; // <-- !! แก้ไขเป็นพร้อมเพย์ของคุณ !!
-    const payload = promptpay(promptpayId, { amount: totalPrice });
-    QRCode.toDataURL(payload, (err, url) => {
-      if (err) { console.error(err); return; }
-      setQrCodeData(url);
-      setIsModalOpen(true);
-    });
-  };
-
-  const handleConfirmPayment = async () => {
+  // --- ฟังก์ชันสำหรับ "บันทึกการขาย" ---
+  const handleSaveOrder = async () => {
+    if (cart.length === 0) {
+      alert("กรุณาเพิ่มสินค้าลงในตะกร้าก่อน");
+      return;
+    }
     try {
+      // เตรียมข้อมูลที่จะบันทึก
       const orderData = {
         totalPrice: totalPrice,
         items: cart,
         createdAt: serverTimestamp()
       };
+      // ส่งข้อมูลไปเก็บที่ Collection "orders"
       await addDoc(collection(db, "orders"), orderData);
+      
       alert("บันทึกการขายสำเร็จ!");
-      clearCart();
-      setIsModalOpen(false);
+      clearCart(); // ล้างตะกร้าเพื่อรับลูกค้าคนต่อไป
     } catch (error) {
       console.error("Error adding document: ", error);
       alert("เกิดข้อผิดพลาดในการบันทึกการขาย");
@@ -132,14 +122,14 @@ useEffect(() => {
               <button key={product.id} onClick={() => addToCart(product)} className="bg-white border border-gray-200 rounded-lg shadow hover:bg-gray-100 transition-colors text-center flex flex-col justify-between">
                 <div className="w-full h-24 bg-gray-200 rounded-t-lg flex items-center justify-center">
                   {product.imageUrl ? (
-                    <img src={product.imageUrl} alt={product.name} className="h-full w-full object-contain rounded-t-lg" /> 
+                    <img src={product.imageUrl} alt={product.name} className="h-full w-full object-contain rounded-t-lg" />
                   ) : (
                     <span className="text-gray-400 text-xs">No Image</span>
                   )}
                 </div>
                 <div className="p-2 flex flex-col justify-center flex-grow">
                   <span className="font-semibold text-gray-800 text-sm">{product.name}</span>
-                  <span className="text-xs text-gray-600">{product.price} บาท</span>
+                  <span className="text-xs text-gray-800">{product.price} บาท</span>
                 </div>
               </button>
             ))}
@@ -179,33 +169,22 @@ useEffect(() => {
           )}
         </div>
         <div className="mt-4 pt-4 border-t-2 border-dashed">
-          <div className="flex justify-between items-center text-2xl font-bold text-gray-800">
+          <div className="flex justify-between items-center text-2xl font-bold text-gray-800 mb-4">
             <span>รวมทั้งหมด:</span>
-            <span>{totalPrice} บาท</span>
+            <span>{totalPrice.toLocaleString()} บาท</span>
           </div>
+          {/* --- ปุ่มนี้จะเรียกใช้ handleSaveOrder แทน --- */}
           <button 
-            onClick={handleGenerateQR} 
+            onClick={handleSaveOrder} 
             className="w-full bg-green-500 text-white font-bold text-2xl py-4 rounded-lg hover:bg-green-600 transition-colors disabled:bg-gray-400"
             disabled={cart.length === 0}
           >
-            ยืนยันและชำระเงิน
+            บันทึกการขาย
           </button>
         </div>
       </div>
       
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
-          <div className="bg-white p-8 rounded-lg text-center">
-            <h2 className="text-2xl font-bold mb-4 text-gray-800">สแกนเพื่อชำระเงิน</h2>
-            <p className="text-xl mb-4 text-gray-700">ยอดชำระทั้งหมด: {totalPrice} บาท</p>
-            {qrCodeData && <img src={qrCodeData} alt="PromptPay QR Code" className="mx-auto" />}
-            <div className="mt-6 flex gap-4">
-              <button onClick={() => setIsModalOpen(false)} className="bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded-lg">ยกเลิก</button>
-              <button onClick={handleConfirmPayment} className="bg-blue-500 text-white font-bold py-2 px-6 rounded-lg">ชำระเงินเรียบร้อย</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ไม่มีการใช้ Pop-up QR Code แล้ว */}
     </main>
   );
 }

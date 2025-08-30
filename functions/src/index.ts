@@ -11,20 +11,23 @@ const db = admin.firestore();
 const LINE_CHANNEL_ACCESS_TOKEN = "d8kCZCQlurCf9/ofYn8rQBnR+vEDPnRFvEhnLHFNKNFeQYDjWVfGmSb16kQwTZKfY6H6Pr6aYyMjP71wcsXnfUCxCIRTfe7mfOkRzxsmXYblDFWO7YfH+i8GoHqAUVEH7gsf/RVaPGBn4dL3YihlUgdB04t89/1O/w1cDnyilFU=";
 const YOUR_LINE_USER_ID = "U0f64e4fcee474034365e8b733721f6e0";
 
+interface CartItem {
+  name: string;
+  quantity: number;
+}
+
 export const dailySalesReport = onSchedule(
   {
-    schedule: "every day 23:30",
+    schedule: "every day 23:30", // ตั้งเวลาที่คุณต้องการ
     timeZone: "Asia/Bangkok",
   },
   async (event) => {
-    logger.info("Starting daily sales report function...", {structuredData: true});
+    logger.info("Starting daily sales report function...");
 
-    // --- 1. Define today's time range ---
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
     const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
 
-    // --- 2. Fetch today's orders from Firestore ---
     const ordersRef = db.collection("orders");
     const query = ordersRef
       .where("createdAt", ">=", startOfToday)
@@ -35,21 +38,40 @@ export const dailySalesReport = onSchedule(
     let message = `🔔 สรุปยอดขายร้านปุ๊ปั่นปอก\nประจำวันที่: ${now.toLocaleDateString("th-TH")}\n\n`;
 
     if (snapshot.empty) {
-      logger.info("No sales today.", {structuredData: true});
       message += "วันนี้ไม่มียอดขายครับ";
     } else {
-      // --- 3. Calculate total sales ---
       let totalSales = 0;
+      // --- ส่วนที่เพิ่มเข้ามา: สร้างที่เก็บสำหรับนับสินค้า ---
+      const productSummary: { [key: string]: number } = {};
+
       snapshot.forEach((doc) => {
-        totalSales += doc.data().totalPrice;
+        const orderData = doc.data();
+        totalSales += orderData.totalPrice;
+
+        // --- วิ่งไล่ดูสินค้าในแต่ละบิล ---
+        if (orderData.items && Array.isArray(orderData.items)) {
+          orderData.items.forEach((item: CartItem) => {
+            if (productSummary[item.name]) {
+              productSummary[item.name] += item.quantity;
+            } else {
+              productSummary[item.name] = item.quantity;
+            }
+          });
+        }
       });
+      
       const orderCount = snapshot.size;
 
-      // --- 4. Create the message to send ---
-      message += `💰 ยอดขายรวม: ${totalSales.toLocaleString()} บาท\n🧾 จำนวนบิล: ${orderCount} บิล`;
+      message += `💰 ยอดขายรวม: ${totalSales.toLocaleString()} บาท\n🧾 จำนวนบิล: ${orderCount} บิล\n\n`;
+      message += "📋 รายการที่ขายได้:\n";
+
+      // --- นำข้อมูลที่นับได้มาสร้างเป็นข้อความ ---
+      for (const [name, quantity] of Object.entries(productSummary)) {
+        message += `- ${name}: ${quantity} แก้ว\n`;
+      }
     }
 
-    // --- 5. Send the message to LINE ---
+    // --- ส่งข้อความไปที่ LINE ---
     try {
       await axios.post(
         "https://api.line.me/v2/bot/message/push",
@@ -64,10 +86,9 @@ export const dailySalesReport = onSchedule(
           },
         }
       );
-      logger.info("Successfully sent LINE message!", {structuredData: true});
+      logger.info("Successfully sent LINE message!");
     } catch (error) {
       logger.error("Error sending LINE message:", error);
     }
-    // สังเกตว่าไม่มี return null; แล้ว
   }
 );
