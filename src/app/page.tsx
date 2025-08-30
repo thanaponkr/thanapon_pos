@@ -172,7 +172,7 @@ export default function Home() {
           <button 
             onClick={handleSaveOrder} 
             className="w-full bg-green-500 text-white font-bold text-2xl py-4 rounded-lg hover:bg-green-600 transition-colors disabled:bg-gray-400"
-            disabled={cart.length === 0}
+            disabled={cart.length === <strong>0</strong>}
           >
             บันทึกการขาย
           </button>
